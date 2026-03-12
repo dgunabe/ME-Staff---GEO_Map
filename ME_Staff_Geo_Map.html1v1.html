@@ -1,0 +1,1093 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>ME Staff — Geo Map</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Share+Tech+Mono&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --red:#E8302A;--amber:#F5A623;--blue:#1E6FD9;--navy:#06101F;
+  --panel:rgba(6,12,24,0.97);--border:rgba(30,111,217,0.22);
+  --text:#BFD0EC;--muted:#3E5F82;--green:#22A55A;
+  --purple:#8E44AD;--orange:#D4670E;--teal:#0096B4;--pink:#C0392B;
+  --pw:420px;
+}
+html,body{height:100%;width:100%;overflow:hidden;background:var(--navy);font-family:'Inter',sans-serif;color:var(--text)}
+
+/* ═══════════════════════════════════════ HEADER */
+#hdr{
+  position:fixed;top:0;left:0;right:0;z-index:1000;
+  height:56px;
+  background:linear-gradient(90deg,rgba(4,9,20,0.99) 0%,rgba(8,16,34,0.99) 100%);
+  border-bottom:1px solid rgba(30,111,217,0.35);
+  display:flex;align-items:center;justify-content:space-between;padding:0 16px;
+}
+.hl{display:flex;align-items:center;gap:14px}
+.pdot{width:9px;height:9px;border-radius:50%;background:var(--red);flex-shrink:0;animation:pdot 1.4s ease-in-out infinite}
+@keyframes pdot{0%,100%{box-shadow:0 0 0 0 rgba(232,48,42,.8)}60%{box-shadow:0 0 0 9px rgba(232,48,42,0)}}
+.brand{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:17px;color:#fff;letter-spacing:2.5px}
+.brand em{color:var(--blue);font-style:normal}
+.sub{font-family:'Share Tech Mono',monospace;font-size:9px;color:var(--muted);letter-spacing:1.2px;margin-top:1px}
+.hr{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.bx{font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1px;padding:3px 8px;border-radius:2px;font-weight:700;white-space:nowrap;cursor:default}
+.bx-r{background:rgba(232,48,42,.12);color:var(--red);border:1px solid rgba(232,48,42,.35)}
+.bx-g{background:rgba(34,165,90,.12);color:var(--green);border:1px solid rgba(34,165,90,.35)}
+.bx-b{background:rgba(30,111,217,.12);color:var(--blue);border:1px solid rgba(30,111,217,.35)}
+.bx-a{background:rgba(245,166,35,.12);color:var(--amber);border:1px solid rgba(245,166,35,.35)}
+.bx-t{background:rgba(0,150,180,.1);color:var(--teal);border:1px solid rgba(0,150,180,.3)}
+#clock{font-family:'Share Tech Mono',monospace;font-size:12px;color:#fff;min-width:82px;text-align:right}
+
+/* ═══════════════════════════════════════ TICKER */
+#ticker{
+  position:fixed;top:56px;left:0;right:0;z-index:999;
+  height:26px;background:#0C0000;
+  border-bottom:1px solid rgba(232,48,42,.4);
+  display:flex;align-items:center;overflow:hidden
+}
+#tlbl{
+  flex-shrink:0;background:var(--red);color:#fff;
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:10px;
+  letter-spacing:2px;padding:0 12px;height:100%;
+  display:flex;align-items:center;white-space:nowrap
+}
+#ttrk{flex:1;overflow:hidden;mask-image:linear-gradient(to right,transparent,black 4%,black 96%,transparent)}
+#tinn{display:flex;white-space:nowrap;animation:tsc 70s linear infinite}
+#tinn:hover{animation-play-state:paused}
+.ti{display:inline-flex;align-items:center;padding:0 28px;font-family:'Share Tech Mono',monospace;font-size:8.5px;color:#f0b0b0;letter-spacing:.3px}
+.ti strong{color:#fff}
+.ts{color:rgba(232,48,42,.4);padding:0 3px;font-size:10px}
+@keyframes tsc{0%{transform:translateX(0)}100%{transform:translateX(-50%)}}
+
+/* ═══════════════════════════════════════ LAYOUT */
+#map{position:fixed;top:82px;left:0;right:var(--pw);bottom:28px}
+#panel{
+  position:fixed;top:82px;right:0;bottom:28px;width:var(--pw);z-index:900;
+  background:var(--panel);border-left:1px solid var(--border);
+  display:flex;flex-direction:column;overflow:hidden
+}
+#btm{
+  position:fixed;bottom:0;left:0;right:var(--pw);z-index:900;height:28px;
+  background:rgba(4,9,18,.97);border-top:1px solid var(--border);
+  padding:0 14px;display:flex;align-items:center;justify-content:space-between;
+  font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)
+}
+
+/* ═══════════════════════════════════════ TABS */
+#tabbar{
+  flex-shrink:0;display:flex;height:40px;
+  border-bottom:1px solid var(--border);
+  background:rgba(0,0,0,.4)
+}
+.tab{
+  flex:1;display:flex;align-items:center;justify-content:center;gap:4px;
+  cursor:pointer;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:10px;
+  letter-spacing:1.5px;color:var(--muted);border-bottom:2px solid transparent;
+  transition:all .18s;text-transform:uppercase;user-select:none;padding:0 2px
+}
+.tab:hover{color:var(--text);background:rgba(30,111,217,.04)}
+.tab.on{color:var(--blue);border-bottom-color:var(--blue);background:rgba(30,111,217,.07)}
+.tab-icon{font-size:11px}
+#pane{flex:1;overflow-y:auto;overflow-x:hidden}
+#pane::-webkit-scrollbar{width:3px}
+#pane::-webkit-scrollbar-track{background:transparent}
+#pane::-webkit-scrollbar-thumb{background:rgba(30,111,217,.3);border-radius:2px}
+.view{display:none}.view.on{display:block}
+
+/* ═══════════════════════════════════════ SECTION */
+.sec{padding:13px 14px;border-bottom:1px solid var(--border)}
+.sec-t{
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:9.5px;
+  color:var(--muted);letter-spacing:2.5px;text-transform:uppercase;
+  margin-bottom:10px;display:flex;align-items:center;justify-content:space-between
+}
+.sec-t-tag{
+  font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;
+  padding:2px 6px;border-radius:10px;font-weight:700
+}
+
+/* ═══════════════════════════════════════ KPI GRID */
+.g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px;margin-bottom:7px}
+.g4{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:5px;margin-bottom:7px}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:7px}
+.kpi{
+  background:linear-gradient(135deg,rgba(255,255,255,.04),rgba(255,255,255,.02));
+  border:1px solid var(--border);border-radius:4px;padding:9px 8px;text-align:center
+}
+.kpi.hi-r{border-color:rgba(232,48,42,.3);background:rgba(232,48,42,.06)}
+.kpi.hi-g{border-color:rgba(34,165,90,.3);background:rgba(34,165,90,.05)}
+.kpi.hi-a{border-color:rgba(245,166,35,.3);background:rgba(245,166,35,.05)}
+.kpi.hi-b{border-color:rgba(30,111,217,.3);background:rgba(30,111,217,.05)}
+.kv{font-family:'Rajdhani',sans-serif;font-size:28px;font-weight:700;line-height:1}
+.kl{font-size:7px;color:var(--muted);letter-spacing:.8px;text-transform:uppercase;margin-top:2px;line-height:1.3}
+.kr{color:var(--red)}.kb{color:var(--blue)}.ka{color:var(--amber)}.kg{color:var(--green)}.kp{color:var(--purple)}.kt{color:var(--teal)}.kw{color:#fff}
+
+/* ═══════════════════════════════════════ PROGRESS BARS */
+.pblk{margin-bottom:5px}
+.pbrow{display:flex;align-items:center;gap:7px;margin-bottom:5px}
+.pblbl{font-family:'Share Tech Mono',monospace;font-size:7.5px;color:var(--muted);width:90px;flex-shrink:0;letter-spacing:.3px}
+.pbtrack{flex:1;height:6px;background:rgba(255,255,255,.06);border-radius:3px;overflow:hidden}
+.pbfill{height:100%;border-radius:3px;transition:width .8s cubic-bezier(.4,0,.2,1)}
+.pbval{font-family:'Rajdhani',sans-serif;font-size:12px;font-weight:700;width:36px;text-align:right;flex-shrink:0}
+.pbpct{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);width:28px;flex-shrink:0}
+
+/* ═══════════════════════════════════════ DISPOSITION TABLE */
+.dtbl{width:100%;border-collapse:collapse}
+.dtbl th{
+  font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1.2px;
+  color:var(--muted);padding:4px 6px;text-align:left;
+  border-bottom:1px solid var(--border);text-transform:uppercase;
+  background:rgba(0,0,0,.3)
+}
+.dtbl th:not(:first-child){text-align:right}
+.dtbl td{padding:5px 6px;border-bottom:1px solid rgba(30,111,217,.08);color:var(--text);vertical-align:middle;font-size:9.5px}
+.dtbl td:not(:first-child){text-align:right}
+.dtbl tr:hover td{background:rgba(30,111,217,.06)}
+.dtbl .inr td:first-child{border-left:2px solid var(--red);padding-left:10px}
+.dtbl .outr td:first-child{border-left:2px solid var(--green);padding-left:10px}
+.dnum{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700}
+.dtbl tfoot td{
+  font-family:'Rajdhani',sans-serif;font-weight:700;font-size:11px;
+  border-top:1px solid var(--border);padding:6px 6px;background:rgba(0,0,0,.2)
+}
+.dtbl tfoot td:not(:first-child){text-align:right}
+.reg-in{color:var(--red);font-size:7px;font-family:'Share Tech Mono',monospace;letter-spacing:.5px;background:rgba(232,48,42,.12);border:1px solid rgba(232,48,42,.25);padding:1px 4px;border-radius:2px;margin-left:4px}
+.reg-out{color:var(--green);font-size:7px;font-family:'Share Tech Mono',monospace;letter-spacing:.5px;background:rgba(34,165,90,.1);border:1px solid rgba(34,165,90,.2);padding:1px 4px;border-radius:2px;margin-left:4px}
+.avg-col{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)}
+
+/* ═══════════════════════════════════════ FLIGHT TRACKER */
+.fbar{display:flex;gap:5px;padding:9px 14px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+.filt{
+  font-family:'Share Tech Mono',monospace;font-size:7.5px;letter-spacing:.8px;
+  padding:3px 8px;border-radius:2px;cursor:pointer;
+  border:1px solid var(--border);color:var(--muted);
+  background:transparent;transition:all .15s;white-space:nowrap
+}
+.filt:hover,.filt.on{color:var(--blue);border-color:rgba(30,111,217,.5);background:rgba(30,111,217,.1)}
+.ftbl{width:100%;border-collapse:collapse;font-size:9px}
+.ftbl th{
+  font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:1px;
+  color:var(--muted);padding:4px 6px 4px 6px;text-align:left;
+  border-bottom:1px solid var(--border);text-transform:uppercase;
+  background:rgba(0,0,0,.3);white-space:nowrap;position:sticky;top:0;z-index:2
+}
+.ftbl td{padding:6px 6px;border-bottom:1px solid rgba(30,111,217,.07);vertical-align:top}
+.ftbl tr:hover td{background:rgba(30,111,217,.05)}
+.f-n{font-size:10px;font-weight:600;color:#fff;line-height:1.2}
+.f-type-s{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--blue);margin-top:2px}
+.f-type-d{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--purple);margin-top:2px}
+.f-type-dep{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px}
+.f-from{font-size:9px;color:var(--text);line-height:1.3}
+.f-to{font-family:'Share Tech Mono',monospace;font-size:7.5px;color:var(--muted);margin-top:1px}
+.f-num{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--amber);line-height:1.5}
+.f-date{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);white-space:nowrap}
+.isos-y{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--green);background:rgba(34,165,90,.1);border:1px solid rgba(34,165,90,.25);padding:1px 4px;border-radius:2px}
+.isos-n{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);background:rgba(0,0,0,.2);border:1px solid var(--border);padding:1px 4px;border-radius:2px}
+.f-row-grp td{background:rgba(245,166,35,.04);border-top:1px solid rgba(245,166,35,.12)}
+
+/* ═══════════════════════════════════════ STATUS CHIPS */
+.chip{
+  display:inline-block;font-family:'Share Tech Mono',monospace;font-size:7px;
+  letter-spacing:.8px;padding:2px 5px;border-radius:2px;font-weight:700;white-space:nowrap
+}
+.cp-c{background:rgba(34,165,90,.14);color:var(--green);border:1px solid rgba(34,165,90,.3)}
+.cp-b{background:rgba(245,166,35,.13);color:var(--amber);border:1px solid rgba(245,166,35,.3)}
+.cp-n{background:rgba(30,111,217,.1);color:#7EB3F5;border:1px solid rgba(30,111,217,.25)}
+.cp-s{background:rgba(0,150,180,.12);color:var(--teal);border:1px solid rgba(0,150,180,.3)}
+.cp-d{background:rgba(212,103,14,.12);color:var(--orange);border:1px solid rgba(212,103,14,.3)}
+.cp-r{background:rgba(232,48,42,.12);color:var(--red);border:1px solid rgba(232,48,42,.28)}
+.cp-m{background:rgba(142,68,173,.12);color:#C39BD3;border:1px solid rgba(142,68,173,.28)}
+.cp-conf{background:rgba(0,150,180,.12);color:var(--teal);border:1px solid rgba(0,150,180,.3)}
+.cp-re{background:rgba(212,103,14,.12);color:var(--orange);border:1px solid rgba(212,103,14,.3)}
+.cp-unk{background:rgba(62,95,130,.12);color:var(--muted);border:1px solid rgba(62,95,130,.25)}
+
+/* ═══════════════════════════════════════ STAFF LIST */
+.sli{
+  display:flex;align-items:flex-start;gap:8px;padding:6px 10px;
+  cursor:pointer;transition:background .12s;border-bottom:1px solid rgba(30,111,217,.06)
+}
+.sli:hover{background:rgba(30,111,217,.09)}
+.sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.sl-info{flex:1;min-width:0}
+.sl-n{font-size:10.5px;font-weight:600;color:#fff;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sl-m{font-family:'Share Tech Mono',monospace;font-size:7.5px;color:var(--muted);margin-top:1px;line-height:1.4}
+.sl-note{font-size:8.5px;color:var(--amber);margin-top:2px;font-style:italic}
+.sl-right{display:flex;flex-direction:column;align-items:flex-end;gap:3px;flex-shrink:0}
+.bu-chip{
+  font-family:'Share Tech Mono',monospace;font-size:7px;letter-spacing:.8px;
+  padding:1px 5px;border-radius:2px
+}
+.dep-num{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--purple);white-space:nowrap}
+.grp-hdr{
+  display:flex;align-items:center;justify-content:space-between;
+  padding:8px 10px 5px;
+  background:rgba(0,0,0,.35);border-bottom:1px solid var(--border);
+  position:sticky;top:0;z-index:1
+}
+.grp-loc{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:11px;letter-spacing:1.5px;color:var(--text)}
+.grp-meta{display:flex;align-items:center;gap:5px}
+
+/* ═══════════════════════════════════════ TRAVEL TABLE */
+.tvl-sect{padding:0 0 8px}
+.tvl-hdr{
+  display:flex;align-items:center;gap:8px;
+  padding:8px 14px 6px;border-bottom:1px solid rgba(30,111,217,.15);
+  font-family:'Share Tech Mono',monospace;font-size:8px;letter-spacing:1.5px;
+  color:var(--muted);text-transform:uppercase
+}
+.tvl-hdr::before{content:'';width:3px;height:14px;border-radius:2px;flex-shrink:0}
+.tvl-hdr.curr::before{background:var(--amber)}
+.tvl-hdr.fut::before{background:var(--blue)}
+.tvl-hdr.can::before{background:var(--green)}
+.tvl-row{
+  display:grid;grid-template-columns:1fr auto;align-items:start;gap:8px;
+  padding:8px 14px;border-bottom:1px solid rgba(30,111,217,.07);transition:background .12s
+}
+.tvl-row:hover{background:rgba(30,111,217,.05)}
+.tvl-n{font-size:10.5px;font-weight:600;color:#fff}
+.tvl-d{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--teal);margin-top:2px}
+.tvl-loc{font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--blue);margin-top:1px}
+.tvl-type{font-size:8.5px;color:var(--muted);margin-top:1px}
+.tvl-note{font-size:8.5px;color:var(--text);margin-top:3px;font-style:italic;line-height:1.4;opacity:.75}
+.tvl-upd{font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);margin-top:2px}
+.tvl-right{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+
+/* ═══════════════════════════════════════ INCIDENT ITEMS */
+.inc{border-radius:3px;padding:8px 10px;margin-bottom:6px;cursor:pointer;transition:background .15s;border-left:3px solid}
+.inc-r{background:rgba(232,48,42,.07);border:1px solid rgba(232,48,42,.17);border-left-color:var(--red)}
+.inc-r:hover{background:rgba(232,48,42,.13)}
+.inc-a{background:rgba(245,166,35,.05);border:1px solid rgba(245,166,35,.16);border-left-color:var(--amber)}
+.inc-a:hover{background:rgba(245,166,35,.11)}
+.inc-o{background:rgba(212,103,14,.05);border:1px solid rgba(212,103,14,.16);border-left-color:var(--orange)}
+.inc-o:hover{background:rgba(212,103,14,.11)}
+.inc-p{background:rgba(142,68,173,.05);border:1px solid rgba(142,68,173,.15);border-left-color:var(--purple)}
+.inc-p:hover{background:rgba(142,68,173,.1)}
+.inc-lbl{font-family:'Share Tech Mono',monospace;font-size:7.5px;letter-spacing:1.2px;margin-bottom:3px}
+.inc-t{font-family:'Rajdhani',sans-serif;font-size:13px;font-weight:700;color:#fff;margin-bottom:2px}
+.inc-c{font-family:'Share Tech Mono',monospace;font-size:7.5px;color:var(--muted);line-height:1.5}
+
+/* ═══════════════════════════════════════ NOTE BOX */
+.nbox{
+  background:rgba(245,166,35,.05);border:1px solid rgba(245,166,35,.18);
+  border-radius:3px;padding:9px 11px;font-size:9px;color:var(--text);line-height:1.6;
+  margin-bottom:6px
+}
+.nbox-t{
+  font-family:'Share Tech Mono',monospace;font-size:7.5px;
+  color:var(--amber);letter-spacing:1.5px;display:block;margin-bottom:5px
+}
+.nbox-b{
+  background:rgba(30,111,217,.06);border:1px solid rgba(30,111,217,.18);
+  border-radius:3px;padding:9px 11px;font-size:9px;color:var(--text);line-height:1.6;
+  margin-bottom:6px
+}
+.nbox-bt{font-family:'Share Tech Mono',monospace;font-size:7.5px;color:var(--blue);letter-spacing:1.5px;display:block;margin-bottom:5px}
+
+/* ═══════════════════════════════════════ MAP MARKERS */
+.mk-s{width:30px;height:30px;background:var(--red);border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 3px rgba(232,48,42,.45),0 3px 10px rgba(0,0,0,.6);animation:mkpulse 2s ease-in-out infinite}
+@keyframes mkpulse{0%,100%{box-shadow:0 0 0 3px rgba(232,48,42,.45),0 3px 10px rgba(0,0,0,.5)}50%{box-shadow:0 0 0 10px rgba(232,48,42,.08),0 3px 14px rgba(232,48,42,.3)}}
+.mk-s-i{transform:rotate(45deg);color:#fff;font-size:12px;margin-top:-3px}
+.mk-d{width:24px;height:24px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.5)}
+.mk-d-i{transform:rotate(45deg);font-size:10px;margin-top:-2px}
+.mk-p{width:15px;height:15px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:1.5px solid rgba(255,255,255,.7);display:flex;align-items:center;justify-content:center;box-shadow:0 1px 5px rgba(0,0,0,.5)}
+.mk-p-i{transform:rotate(45deg);font-size:5.5px;color:#fff;margin-top:-1px}
+
+/* ═══════════════════════════════════════ POPUPS */
+.leaflet-popup-content-wrapper{background:rgba(5,10,22,.98)!important;border:1px solid rgba(30,111,217,.3)!important;border-radius:5px!important;box-shadow:0 12px 40px rgba(0,0,0,.8),0 0 0 1px rgba(30,111,217,.1)!important;font-family:'Inter',sans-serif!important}
+.leaflet-popup-tip{background:rgba(5,10,22,.98)!important}
+.leaflet-popup-content{margin:0!important;padding:0!important;min-width:250px}
+.pop{padding:13px 15px}
+.pop-type{font-family:'Share Tech Mono',monospace;font-size:7.5px;letter-spacing:2px;text-transform:uppercase;margin-bottom:4px;opacity:.9}
+.pop-title{font-family:'Rajdhani',sans-serif;font-weight:700;font-size:15px;color:#fff;margin-bottom:7px;line-height:1.2}
+.pop-div{height:1px;background:rgba(30,111,217,.2);margin:6px 0}
+.pop-r{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);margin-bottom:3px;gap:8px}
+.pop-r span:last-child{color:var(--text);font-family:'Share Tech Mono',monospace;font-size:8.5px;text-align:right;max-width:165px}
+.pop-src{margin-top:6px;font-family:'Share Tech Mono',monospace;font-size:7px;color:var(--muted);border-top:1px solid rgba(30,111,217,.15);padding-top:5px}
+.pk-r{background:rgba(232,48,42,.18);color:var(--red);border:1px solid rgba(232,48,42,.38)}
+.pk-a{background:rgba(245,166,35,.18);color:var(--amber);border:1px solid rgba(245,166,35,.38)}
+.pk-g{background:rgba(34,165,90,.18);color:var(--green);border:1px solid rgba(34,165,90,.38)}
+.pk-b{background:rgba(30,111,217,.18);color:#7EB3F5;border:1px solid rgba(30,111,217,.38)}
+.pk-t{background:rgba(0,150,180,.18);color:var(--teal);border:1px solid rgba(0,150,180,.38)}
+.pk-o{background:rgba(212,103,14,.18);color:var(--orange);border:1px solid rgba(212,103,14,.38)}
+.pk-p{background:rgba(142,68,173,.18);color:#C39BD3;border:1px solid rgba(142,68,173,.38)}
+.leaflet-top.leaflet-left{top:12px!important;left:12px!important}
+.leaflet-control-zoom a{background:rgba(6,12,24,.95)!important;color:var(--text)!important;border-color:var(--border)!important;font-size:14px!important}
+.leaflet-control-zoom a:hover{background:rgba(30,111,217,.15)!important}
+.leaflet-control-attribution{display:none!important}
+</style>
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════════ HEADER -->
+<div id="hdr">
+  <div class="hl">
+    <div class="pdot"></div>
+    <div>
+      <div class="brand">DOW JONES <em>GSOC</em></div>
+      <div class="sub">ME STAFF GEO MAP · DUBAI THEATRE · US–IRAN CONFLICT · DAY 12</div>
+    </div>
+  </div>
+  <div class="hr">
+    <span class="bx bx-r">⚡ 8 STRIKE SITES</span>
+    <span class="bx bx-g">✅ ALL EVACUATED</span>
+    <span class="bx bx-b">👥 49 STAFF · 46 DEPS</span>
+    <span class="bx bx-a">✈ 20 EXTRACTED</span>
+    <span class="bx bx-t">🔖 9 STEP ENROLLED</span>
+    <span id="clock">--:--:-- UTC</span>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════ TICKER -->
+<div id="ticker">
+  <div id="tlbl">⚡ LIVE</div>
+  <div id="ttrk"><div id="tinn">
+    <span class="ti"><strong>🛡 UAE MOD · 11 MAR:</strong> Air defences engage 6 ballistic + 7 cruise msls + 39 UAVs — Khaleej Times</span><span class="ts">◆</span>
+    <span class="ti"><strong>✅ ALL DOW JONES RESIDENTS EVACUATED</strong> · GSOC Dubai confirmed · 11 MAR 2026</span><span class="ts">◆</span>
+    <span class="ti"><strong>✈ DXB AIRPORT · 11 MAR:</strong> 2 drones fell near Terminal 3 · 4 injured · Air traffic operating normal — Dubai Media Office / Reuters</span><span class="ts">◆</span>
+    <span class="ti"><strong>📊 CUMULATIVE 28 FEB → 11 MAR:</strong> 1,475 drones detected · 1,385 intercepted · 90 hit land · 6 killed · 122+ injured — UAE MOD</span><span class="ts">◆</span>
+    <span class="ti"><strong>👥 STAFF: 30 REMAIN IN REGION (61%)</strong> · 20 extracted · 4 booked · 26 not intending to extract — GSOC 09 MAR</span><span class="ts">◆</span>
+    <span class="ti"><strong>🔥 JEBEL ALI PORT:</strong> Fire at berth from interception debris · Port operations fully suspended — Lloyd's List</span><span class="ts">◆</span>
+    <span class="ti"><strong>🔥 PALM JUMEIRAH / BURJ AL ARAB:</strong> Shahed drone impact + missile debris · Fires contained · Hotel closed — Bloomberg / Euronews</span><span class="ts">◆</span>
+    <span class="ti"><strong>🌍 CONTEXT:</strong> US-Israel-Iran war Day 12 · Iran: 165 ballistic msls, 2 cruise, 541 drones at UAE since 28 Feb · 6 dead · 122+ injured — TIME</span><span class="ts">◆</span>
+    <span class="ti"><strong>✈ AVIATION:</strong> British Airways suspended · Emirates 84+ destinations · Airspace partial corridors · Muscat recommended alternate — TravelPirates</span><span class="ts">◆</span>
+    <!-- duplicate for loop -->
+    <span class="ti"><strong>🛡 UAE MOD · 11 MAR:</strong> Air defences engage 6 ballistic + 7 cruise msls + 39 UAVs — Khaleej Times</span><span class="ts">◆</span>
+    <span class="ti"><strong>✅ ALL DOW JONES RESIDENTS EVACUATED</strong> · GSOC Dubai confirmed · 11 MAR 2026</span><span class="ts">◆</span>
+    <span class="ti"><strong>✈ DXB AIRPORT · 11 MAR:</strong> 2 drones fell near Terminal 3 · 4 injured · Air traffic operating normal — Dubai Media Office / Reuters</span><span class="ts">◆</span>
+    <span class="ti"><strong>📊 CUMULATIVE 28 FEB → 11 MAR:</strong> 1,475 drones detected · 1,385 intercepted · 90 hit land · 6 killed · 122+ injured — UAE MOD</span><span class="ts">◆</span>
+    <span class="ti"><strong>👥 STAFF: 30 REMAIN IN REGION (61%)</strong> · 20 extracted · 4 booked · 26 not intending to extract — GSOC 09 MAR</span><span class="ts">◆</span>
+    <span class="ti"><strong>🔥 JEBEL ALI PORT:</strong> Fire at berth from interception debris · Port operations fully suspended — Lloyd's List</span><span class="ts">◆</span>
+    <span class="ti"><strong>🔥 PALM JUMEIRAH / BURJ AL ARAB:</strong> Shahed drone impact + missile debris · Fires contained · Hotel closed — Bloomberg / Euronews</span><span class="ts">◆</span>
+    <span class="ti"><strong>🌍 CONTEXT:</strong> US-Israel-Iran war Day 12 · Iran: 165 ballistic msls, 2 cruise, 541 drones at UAE since 28 Feb · 6 dead · 122+ injured — TIME</span><span class="ts">◆</span>
+    <span class="ti"><strong>✈ AVIATION:</strong> British Airways suspended · Emirates 84+ destinations · Airspace partial corridors · Muscat recommended alternate — TravelPirates</span><span class="ts">◆</span>
+  </div></div>
+</div>
+
+<div id="m<div id="map" 
+
+<!-- ══════════════════════════════════════════════ PANEL -->
+<div id="panel">
+  <div id="tabbar">
+    <div class="tab on" data-t="exec"><span class="tab-icon">📊</span>EXEC</div>
+    <div class="tab" data-t="extract"><span class="tab-icon">✈</span>EXTRACT</div>
+    <div class="tab" data-t="staff"><span class="tab-icon">👥</span>STAFF</div>
+    <div class="tab" data-t="travel"><span class="tab-icon">🌍</span>TRAVEL</div>
+    <div class="tab" data-t="strikes"><span class="tab-icon">⚡</span>STRIKES</div>
+  </div>
+  <div id="pane">
+
+    <!-- ════════ EXEC TAB ════════ -->
+    <div class="view on" id="v-exec">
+
+      <!-- Top KPIs -->
+      <div class="sec">
+        <div class="sec-t">
+          SITUATION REPORT — 11 MAR 2026
+          <span class="sec-t-tag" style="background:rgba(232,48,42,.12);color:var(--red);border:1px solid rgba(232,48,42,.3)">DAY 12</span>
+        </div>
+        <div class="g4" style="margin-bottom:8px">
+          <div class="kpi hi-b"><div class="kv kb">49</div><div class="kl">Total Staff</div></div>
+          <div class="kpi hi-b"><div class="kv" style="color:var(--purple)">46</div><div class="kl">Dependants</div></div>
+          <div class="kpi hi-b"><div class="kv kw">95</div><div class="kl">All People</div></div>
+          <div class="kpi hi-b"><div class="kv kt">9</div><div class="kl">STEP Enrolled</div></div>
+        </div>
+        <div class="g3">
+          <div class="kpi hi-r"><div class="kv kr">30</div><div class="kl">In Region<br/>Staff</div></div>
+          <div class="kpi hi-g"><div class="kv kg">20</div><div class="kl">Extracted<br/>Staff</div></div>
+          <div class="kpi hi-a"><div class="kv ka">4</div><div class="kl">Booked<br/>Out</div></div>
+        </div>
+        <!-- confirmed callout -->
+        <div style="padding:7px 10px;background:rgba(34,165,90,.08);border:1px solid rgba(34,165,90,.25);border-radius:3px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--green);letter-spacing:.5px;line-height:1.5">
+          ✅ 100% OF THOSE WHO HAVE OR INTEND TO DEPART HAVE COMMENCED MOVEMENT
+        </div>
+      </div>
+
+      <!-- Extraction Breakdown -->
+      <div class="sec">
+        <div class="sec-t">EXTRACTION STATUS BREAKDOWN <span class="sec-t-tag" style="background:rgba(30,111,217,.1);color:var(--blue);border:1px solid rgba(30,111,217,.25)">49 STAFF</span></div>
+        <div class="pblk">
+          <div class="pbrow">
+            <div class="pblbl">NOT INTENDING</div>
+            <div class="pbtrack"><div class="pbfill" style="width:53%;background:linear-gradient(90deg,#1E6FD9,#2980b9)"></div></div>
+            <div class="pbval kb">26</div>
+            <div class="pbpct">53%</div>
+          </div>
+          <div class="pbrow">
+            <div class="pblbl">COMPLETE</div>
+            <div class="pbtrack"><div class="pbfill" style="width:33%;background:linear-gradient(90deg,#22A55A,#27AE60)"></div></div>
+            <div class="pbval kg">16</div>
+            <div class="pbpct">33%</div>
+          </div>
+          <div class="pbrow">
+            <div class="pblbl">INTENDING</div>
+            <div class="pbtrack"><div class="pbfill" style="width:6%;background:linear-gradient(90deg,#0096B4,#00B4D8)"></div></div>
+            <div class="pbval kt">3</div>
+            <div class="pbpct">6%</div>
+          </div>
+          <div class="pbrow">
+            <div class="pblbl">MID-EXTRACT</div>
+            <div class="pbtrack"><div class="pbfill" style="width:2%;background:linear-gradient(90deg,#F5A623,#f39c12)"></div></div>
+            <div class="pbval ka">1</div>
+            <div class="pbpct">2%</div>
+          </div>
+          <div class="pbrow">
+            <div class="pblbl">DEVELOPING</div>
+            <div class="pbtrack"><div class="pbfill" style="width:2%;background:linear-gradient(90deg,#D4670E,#e67e22)"></div></div>
+            <div class="pbval" style="color:var(--orange)">1</div>
+            <div class="pbpct">2%</div>
+          </div>
+          <div class="pbrow">
+            <div class="pblbl">N/A</div>
+            <div class="pbtrack"><div class="pbfill" style="width:4%;background:rgba(255,255,255,.2)"></div></div>
+            <div class="pbval" style="color:var(--muted)">2</div>
+            <div class="pbpct">4%</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 11 MAR Engagement -->
+      <div class="sec">
+        <div class="sec-t">
+          11 MAR 2026 — UAE OFFICIAL ENGAGEMENT
+          <span class="sec-t-tag" style="background:rgba(232,48,42,.1);color:var(--red);border:1px solid rgba(232,48,42,.25)">KHALEEJ TIMES</span>
+        </div>
+        <div class="g3">
+          <div class="kpi" style="border-color:rgba(232,48,42,.3)"><div class="kv kr">6</div><div class="kl">Ballistic<br/>Missiles</div></div>
+          <div class="kpi" style="border-color:rgba(245,166,35,.3)"><div class="kv ka">7</div><div class="kl">Cruise<br/>Missiles</div></div>
+          <div class="kpi" style="border-color:rgba(142,68,173,.3)"><div class="kv kp">39</div><div class="kl">UAVs<br/>Engaged</div></div>
+        </div>
+        <div class="nbox">
+          <span class="nbox-t">CUMULATIVE SINCE 28 FEB — UAE MOD</span>
+          <strong style="color:var(--red)">1,475</strong> drones detected &nbsp;·&nbsp;
+          <strong style="color:var(--green)">1,385</strong> intercepted &nbsp;·&nbsp;
+          <strong style="color:var(--amber)">90</strong> hit land &nbsp;·&nbsp;
+          <strong style="color:var(--red)">6</strong> killed &nbsp;·&nbsp;
+          <strong style="color:var(--amber)">122+</strong> injured across 18 nationalities
+        </div>
+      </div>
+
+      <!-- Disposition Table -->
+      <div class="sec">
+        <div class="sec-t">
+          TOT STAFF &amp; DEPENDANT DISPOSITION
+          <span class="sec-t-tag" style="background:rgba(30,111,217,.1);color:var(--blue);border:1px solid rgba(30,111,217,.25)">AS OF 09 MAR 2026</span>
+        </div>
+        <table class="dtbl">
+          <thead>
+            <tr>
+              <th>Location</th>
+              <th>Staff</th>
+              <th>%</th>
+              <th>Deps</th>
+              <th>%</th>
+              <th>Total</th>
+              <th>Avg</th>
+            </tr>
+          </thead>
+          <tbody id="d-tbody"></tbody>
+          <tfoot>
+            <tr>
+              <td>TOTALS</td>
+              <td style="color:var(--blue)">49</td>
+              <td class="avg-col">100%</td>
+              <td style="color:var(--purple)">46</td>
+              <td class="avg-col">100%</td>
+              <td style="color:#fff">95</td>
+              <td class="avg-col">0.9</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Key Notes -->
+      <div class="sec">
+        <div class="sec-t">KEY OPERATIONAL NOTES</div>
+        <div class="nbox">
+          <span class="nbox-t">📋 GSOC NOTES — 09 MAR 2026</span>
+          <div style="display:flex;flex-direction:column;gap:5px">
+            <div>① One person in <strong style="color:var(--amber)">London</strong> is Dubai-based but unable to return to region.</div>
+            <div>② One person in <strong style="color:var(--amber)">Dubai</strong> will relocate to Muscat once visas sorted.</div>
+            <div>③ One person in <strong style="color:var(--amber)">Muscat/Oman</strong> staying there with family.</div>
+            <div>④ <strong style="color:var(--green)">100%</strong> of those departing have commenced movement.</div>
+          </div>
+        </div>
+        <div class="nbox-b">
+          <span class="nbox-bt">👨‍👩‍👧 NOTABLE DEPENDANT SITUATIONS</span>
+          <div style="display:flex;flex-direction:column;gap:4px;font-size:8.5px">
+            <div><strong style="color:var(--text)">Gilman Ahmed</strong> — Wife <strong>heavily pregnant</strong> · Remaining Dubai</div>
+            <div><strong style="color:var(--text)">Sara Al Dasuqi</strong> — Parents + sister (3 deps) · Remaining Dubai</div>
+            <div><strong style="color:var(--text)">Alaa Mohamed</strong> — 4 deps (Ahmed + 3 daughters) · Remaining Dubai</div>
+            <div><strong style="color:var(--text)">Nikhil Lohade</strong> — 5 deps · Extracted to India via WY265</div>
+            <div><strong style="color:var(--text)">Claudio Brandao</strong> — Wife + 2 daughters · Extracted Sao Paulo via ET625/ET506</div>
+            <div><strong style="color:var(--text)">Dov Lieber</strong> — Wife · STEP enrolled · Jerusalem</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:9px 14px;font-family:'Share Tech Mono',monospace;font-size:7.5px;color:var(--muted);text-align:center;border-top:1px solid var(--border);line-height:1.7">
+        RESTRICTED · FOR GSOC USE ONLY<br/>
+        Sources: UAE MOD · Dubai Media Office · Al Jazeera · Reuters · The National · Khaleej Times · Lloyd's List · Bloomberg · TIME
+        <br/>Dow Jones Global Security Operations · 11 MAR 2026
+      </div>
+    </div>
+
+    <!-- ════════ EXTRACT TAB ════════ -->
+    <div class="view" id="v-extract">
+      <div class="fbar">
+        <button class="filt on" data-f="all">ALL (36)</button>
+        <button class="filt" data-f="Staff">STAFF (20)</button>
+        <button class="filt" data-f="Dep">DEPS (16)</button>
+        <button class="filt" data-f="Complete">✓ COMPLETE</button>
+        <button class="filt" data-f="Booked">BOOKED</button>
+        <button class="filt" data-f="No">⚠ NO</button>
+      </div>
+      <div style="padding:5px 14px 6px;display:flex;gap:8px;align-items:center;border-bottom:1px solid var(--border);flex-wrap:wrap">
+        <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)">EXTRACTED:</span>
+        <span class="chip cp-g">32 COMPLETE</span>
+        <span class="chip cp-b">4 BOOKED</span>
+        <span style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);margin-left:6px">ISOS ENROLLED:</span>
+        <span class="chip cp-g">YES (most)</span>
+      </div>
+      <table class="ftbl">
+        <thead>
+          <tr>
+            <th style="padding-left:14px">#</th>
+            <th>NAME</th>
+            <th>DEP FROM</th>
+            <th>DESTINATION</th>
+            <th>FLIGHT(S)</th>
+            <th>DATE</th>
+            <th>ISOS</th>
+            <th>STATUS</th>
+          </tr>
+        </thead>
+        <tbody id="ext-tbody"></tbody>
+      </table>
+    </div>
+
+    <!-- ════════ STAFF TAB ════════ -->
+    <div class="view" id="v-staff">
+      <div style="padding:7px 14px;border-bottom:1px solid var(--border);display:flex;gap:5px;flex-wrap:wrap;align-items:center">
+        <span style="font-family:'Share Tech Mono',monospace;font-size:7.5px;color:var(--muted);margin-right:2px">STATUS KEY:</span>
+        <span class="chip cp-r">IN REGION</span>
+        <span class="chip cp-n">NOT INTENDING</span>
+        <span class="chip cp-b">BOOKED</span>
+        <span class="chip cp-s">STEP</span>
+        <span class="chip cp-d">DEVELOPING</span>
+        <span class="chip cp-c">EXTRACTED</span>
+      </div>
+      <div id="staff-container"></div>
+    </div>
+
+    <!-- ════════ TRAVEL TAB ════════ -->
+    <div class="view" id="v-travel">
+      <div style="padding:9px 14px;border-bottom:1px solid var(--border)">
+        <div style="font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted);letter-spacing:1px;margin-bottom:5px">MIDDLE EAST REGION TRAVEL — UPCOMING / STATUS</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap">
+          <span class="chip cp-b">2 CURRENT</span>
+          <span class="chip cp-n">6 UPCOMING</span>
+          <span class="chip cp-c">4 CANCELLED / REBOOKED</span>
+        </div>
+      </div>
+
+      <div class="tvl-sect">
+        <div class="tvl-hdr curr">CURRENT TRAVEL IN REGION</div>
+        <div id="tvl-current"></div>
+      </div>
+      <div class="tvl-sect">
+        <div class="tvl-hdr fut">UPCOMING / FUTURE TRAVEL</div>
+        <div id="tvl-future"></div>
+      </div>
+      <div class="tvl-sect">
+        <div class="tvl-hdr can">CANCELLED / REBOOKED</div>
+        <div id="tvl-cancelled"></div>
+      </div>
+    </div>
+
+    <!-- ════════ STRIKES TAB ════════ -->
+    <div class="view" id="v-strikes">
+      <div class="sec">
+        <div class="sec-t">
+          11 MAR 2026 — ACTIVE STRIKE SITES
+          <span class="sec-t-tag" style="background:rgba(232,48,42,.12);color:var(--red);border:1px solid rgba(232,48,42,.3)">LIVE</span>
+        </div>
+        <div class="inc inc-r" onclick="flyTo(25.2532,55.3657,14)">
+          <div class="inc-lbl" style="color:var(--red)">⚡ CONFIRMED HIT · 11 MAR 2026</div>
+          <div class="inc-t">Dubai Intl Airport — Terminal 3</div>
+          <div class="inc-c">2 drones fell near DXB · 4 injured (2 Ghanaian · 1 Bangladeshi · 1 Indian) · Air traffic operating normal · Src: Dubai Media Office / Reuters / The National</div>
+        </div>
+        <div class="inc inc-r" onclick="flyTo(25.2168,55.3309,14)">
+          <div class="inc-lbl" style="color:var(--red)">⚡ CONFIRMED HIT · 11 MAR 2026</div>
+          <div class="inc-t">Al Jadaf — Drone Strike Zone</div>
+          <div class="inc-c">Strike confirmed · 0.79 mi from DJ DoubleTree Al Jadaf · Source: GSOC Dubai Theatre</div>
+        </div>
+        <div class="inc inc-r" onclick="flyTo(25.2067,55.3478,14)">
+          <div class="inc-lbl" style="color:var(--red)">⚡ CONFIRMED HIT · 11 MAR 2026</div>
+          <div class="inc-t">Dubai Creek Harbour / Ras Al Khor</div>
+          <div class="inc-c">Strike confirmed · Fire controlled · All residents evacuated · Source: GSOC</div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sec-t">HISTORICAL STRIKE SITES — SINCE 28 FEB</div>
+        <div class="inc inc-a" onclick="flyTo(25.1090,55.1380,14)">
+          <div class="inc-lbl" style="color:var(--amber)">💥 DRONE IMPACT · 1 MAR 2026</div>
+          <div class="inc-t">Palm Jumeirah — Fairmont Hotel</div>
+          <div class="inc-c">Shahed-136 loitering munition · 4 injured (debris/blast) · Large fire · Windows shattered · Src: Bloomberg / Wikipedia</div>
+        </div>
+        <div class="inc inc-a" onclick="flyTo(25.1412,55.1853,14)">
+          <div class="inc-lbl" style="color:var(--amber)">💥 DEBRIS IMPACT · 1 MAR 2026</div>
+          <div class="inc-t">Burj Al Arab</div>
+          <div class="inc-c">Intercepted missile fragment · Structural damage · Fire contained · Hotel evacuated and closed · Src: Euronews / TIME</div>
+        </div>
+        <div class="inc inc-a" onclick="flyTo(25.0060,55.0880,12)">
+          <div class="inc-lbl" style="color:var(--amber)">🔥 PORT FIRE · 1 MAR 2026</div>
+          <div class="inc-t">Jebel Ali Port</div>
+          <div class="inc-c">Interception debris on berth · Large fire · Smoke for hours · All ops suspended · 3 ships hit regionally · Src: Lloyd's List / Al Jazeera</div>
+        </div>
+        <div class="inc inc-o" onclick="flyTo(25.2285,55.2836,14)">
+          <div class="inc-lbl" style="color:var(--orange)">🎯 DRONE STRIKE · 3 MAR 2026</div>
+          <div class="inc-t">US Consulate Dubai</div>
+          <div class="inc-c">Drone hit parking area · Fire quickly contained · No injuries · Src: Travel &amp; Tour World / Wikipedia</div>
+        </div>
+        <div class="inc inc-p" onclick="flyTo(25.0264,55.3668,12)">
+          <div class="inc-lbl" style="color:var(--purple)">🎖 MILITARY TARGET · 28 FEB 2026</div>
+          <div class="inc-t">Al Minhad Air Base — US Forces</div>
+          <div class="inc-c">Primary Iranian target hosting US military · Multiple intercepts · Fully operational · Src: Wikipedia / Breaking Defense</div>
+        </div>
+      </div>
+      <div class="sec">
+        <div class="sec-t" style="color:var(--orange)">🏨 DJ MONITORED ASSET</div>
+        <div class="inc inc-o" onclick="flyTo(25.2225,55.3317,15)" style="margin-bottom:0">
+          <div class="inc-lbl" style="color:var(--orange)">🏨 MONITORING ACTIVE · 04–25 MAR 2026</div>
+          <div class="inc-t">DoubleTree by Hilton Dubai Al Jadaf</div>
+          <div class="inc-c">0.79 mi from Strike Zone 1 · Dow Jones event venue · Active monitoring period: 04–25 Mar 2026</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div id="btm">
+  <span>COORD: <span id="coord" style="color:var(--text)">Hover map for coordinates</span></span>
+  <span>WGS84 DD · CartoDB Dark Matter · UNRESTRICTED VIEW</span>
+  <span>STATUS: <span style="color:var(--green)">LIVE ●</span></span>
+</div>
+
+<script>
+// ── CLOCK ─────────────────────────────────────────────────────
+(function tick(){
+  const n=new Date(),h=n.getUTCHours(),m=n.getUTCMinutes(),s=n.getUTCSeconds();
+  document.getElementById('clock').textContent=
+    String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+' UTC';
+  setTimeout(tick,1000);
+})();
+
+// ── MAP ───────────────────────────────────────────────────────
+const map=L.map('map',{center:[27,48],zoom:5,zoomControl:true});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+  {subdomains:'abcd',maxZoom:20,attribution:''}).addTo(map);
+map.on('mousemove',e=>{
+  document.getElementById('coord').textContent=
+    e.latlng.lat.toFixed(5)+', '+e.latlng.lng.toFixed(5);
+});
+function flyTo(lat,lng,z){map.flyTo([lat,lng],z||13,{duration:1.3});}
+
+// ── ICONS ─────────────────────────────────────────────────────
+function mkStrike(){
+  return L.divIcon({className:'',iconSize:[30,30],iconAnchor:[15,30],popupAnchor:[0,-34],
+    html:'<div class="mk-s"><div class="mk-s-i">⚡</div></div>'});
+}
+function mkDebris(em,bg){
+  return L.divIcon({className:'',iconSize:[24,24],iconAnchor:[12,24],popupAnchor:[0,-28],
+    html:`<div class="mk-d" style="background:${bg}"><div class="mk-d-i">${em}</div></div>`});
+}
+function mkStaff(col){
+  return L.divIcon({className:'',iconSize:[15,15],iconAnchor:[7,15],popupAnchor:[0,-18],
+    html:`<div class="mk-p" style="background:${col}"><div class="mk-p-i">●</div></div>`});
+}
+
+// ── POPUP ─────────────────────────────────────────────────────
+function mkPop(tc,tl,title,rows,badges,src){
+  return`<div class="pop">
+    <div class="pop-type" style="color:${tc}">${tl}</div>
+    <div class="pop-title">${title}</div>
+    <div class="pop-div"></div>
+    ${rows.map(r=>`<div class="pop-r"><span>${r[0]}</span><span>${r[1]}</span></div>`).join('')}
+    <div class="pop-div"></div>
+    ${badges}
+    ${src?`<div class="pop-src">📰 ${src}</div>`:''}
+  </div>`;
+}
+function pr(cls,lbl){return`<span class="chip ${cls}" style="margin:1px 2px">${lbl}</span>`;}
+
+// ── STRIKE SITES ──────────────────────────────────────────────
+const strikes=[
+  {lat:25.2532,lng:55.3657,icon:mkStrike(),tc:'var(--red)',tl:'⚡ CONFIRMED HIT · 11 MAR 2026',title:'Dubai Intl Airport — Terminal 3',
+    rows:[['Date','11 MAR 2026'],['Incident','2 drones fell near DXB'],['Casualties','4 injured (2 Ghanaian · 1 Bangladeshi · 1 Indian)'],['Status','Air traffic operating normally']],
+    b:pr('pk-r','CONFIRMED HIT')+pr('pk-a','DAY 12'),src:'Dubai Media Office · Reuters · The National',radius:700,rcol:'#E8302A'},
+  {lat:25.2168,lng:55.3309,icon:mkStrike(),tc:'var(--red)',tl:'⚡ CONFIRMED HIT · 11 MAR 2026',title:'Al Jadaf — Drone Strike Zone',
+    rows:[['Date','11 MAR 2026'],['Distance to DJ Hotel','0.79 miles'],['Status','Strike confirmed active']],
+    b:pr('pk-r','EXTREME'),src:'GSOC Dubai Theatre',radius:1609,rcol:'#E8302A'},
+  {lat:25.2067,lng:55.3478,icon:mkStrike(),tc:'var(--red)',tl:'⚡ CONFIRMED HIT · 11 MAR 2026',title:'Dubai Creek Harbour',
+    rows:[['Date','11 MAR 2026'],['Fire','Controlled'],['Residents','Evacuated']],
+    b:pr('pk-a','ELEVATED'),src:'GSOC',radius:1200,rcol:'#E8302A'},
+  {lat:25.1090,lng:55.1380,icon:mkDebris('💥','#D4670E'),tc:'var(--amber)',tl:'💥 DRONE IMPACT · 1 MAR 2026',title:'Palm Jumeirah — Fairmont Hotel',
+    rows:[['Date','1 MAR 2026'],['Weapon','Shahed-136 loitering munition'],['Casualties','4 injured (debris/blast)'],['Damage','Large explosion · Fire · Windows shattered'],['Status','Fire contained']],
+    b:pr('pk-a','DEBRIS IMPACT'),src:'Bloomberg · Wikipedia · TIME',radius:500,rcol:'#F5A623'},
+  {lat:25.1412,lng:55.1853,icon:mkDebris('💥','#D4670E'),tc:'var(--amber)',tl:'💥 DEBRIS IMPACT · 1 MAR 2026',title:'Burj Al Arab',
+    rows:[['Date','1 MAR 2026'],['Cause','Intercepted missile fragment'],['Damage','Structural damage to facade'],['Status','Fire contained · Hotel closed']],
+    b:pr('pk-a','DEBRIS IMPACT'),src:'Euronews · TIME',radius:350,rcol:'#F5A623'},
+  {lat:25.0060,lng:55.0880,icon:mkDebris('🔥','#D4670E'),tc:'var(--amber)',tl:'🔥 PORT FIRE · 1 MAR 2026',title:'Jebel Ali Port',
+    rows:[['Date','1 MAR 2026'],['Cause','Interception debris hit berth'],['Fire','Hours of smoke · Visible at sea'],['Operations','FULLY SUSPENDED'],['Shipping','3 vessels hit in regional waters']],
+    b:pr('pk-a','OPS SUSPENDED'),src:"Lloyd's List · Al Jazeera · TIME",radius:800,rcol:'#F5A623'},
+  {lat:25.2285,lng:55.2836,icon:mkDebris('🎯','#D4670E'),tc:'var(--orange)',tl:'🎯 DRONE STRIKE · 3 MAR 2026',title:'US Consulate Dubai',
+    rows:[['Date','3 MAR 2026'],['Weapon','Drone — targeted'],['Damage','Fire in parking area'],['Casualties','None'],['Status','Contained']],
+    b:pr('pk-o','TARGETED'),src:'Travel & Tour World · Wikipedia',radius:0,rcol:''},
+  {lat:25.0264,lng:55.3668,icon:mkDebris('🎖','#8E44AD'),tc:'var(--purple)',tl:'🎖 MILITARY TARGET · 28 FEB+ ONGOING',title:'Al Minhad Air Base — US Forces',
+    rows:[['Date','28 FEB – ongoing'],['Target','Iranian primary target'],['US Forces','Deployed on-site'],['Status','Multiple intercepts · Operational']],
+    b:pr('pk-p','MILITARY TARGET'),src:'Wikipedia · Breaking Defense',radius:800,rcol:'#8E44AD'},
+];
+strikes.forEach(s=>{
+  L.marker([s.lat,s.lng],{icon:s.icon,zIndexOffset:3000}).addTo(map)
+    .bindPopup(mkPop(s.tc,s.tl,s.title,s.rows,s.b,s.src),{maxWidth:300});
+  if(s.radius>0)
+    L.circle([s.lat,s.lng],{radius:s.radius,color:s.rcol,fillColor:s.rcol,fillOpacity:.05,
+      weight:1.2,dashArray:'5 4',opacity:.45}).addTo(map);
+});
+
+// DJ Hotel
+L.marker([25.2225,55.3317],{icon:mkDebris('🏨','#D4670E'),zIndexOffset:2000}).addTo(map)
+  .bindPopup(mkPop('var(--orange)','🏨 DJ MONITORED ASSET','DoubleTree by Hilton Al Jadaf',
+    [['Monitor Window','04–25 MAR 2026'],['Dist to Strike 1','0.79 miles'],['BU','Dow Jones']],
+    pr('pk-o','MONITORING ACTIVE'),'GSOC Dubai'),{maxWidth:280});
+
+// ── PROXIMITY LINES ───────────────────────────────────────────
+L.polyline([[25.2532,55.3657],[25.2168,55.3309]],{color:'#E8302A',weight:1,dashArray:'4 7',opacity:.3}).addTo(map);
+L.polyline([[25.2168,55.3309],[25.2067,55.3478]],{color:'#E8302A',weight:1.5,dashArray:'4 6',opacity:.35}).addTo(map);
+L.polyline([[25.2225,55.3317],[25.2168,55.3309]],{color:'#D4670E',weight:1,dashArray:'3 5',opacity:.4}).addTo(map);
+
+// ── STAFF DATA ────────────────────────────────────────────────
+// Status codes: N=not-intending, B=booked, S=step, D=developing, C=complete, M=mid-extract
+const STAFF=[
+  // Dubai IN-REGION
+  {n:'Omar Abdel-Baqui',bu:'WSJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.190,lng:55.270},
+  {n:'Rania Aboulbaqaa',bu:'CMA',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.077,lng:55.134},
+  {n:'Gilman Ahmed',bu:'WSJBarrons',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:1,note:'Wife heavily pregnant',lat:24.991,lng:55.396},
+  {n:'Samer Alatrush',bu:'DJ (News UK)',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'CAN/JOR',lat:25.204,lng:55.270},
+  {n:'Sarah Al Dasuqi',bu:'DJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:3,note:'Parents & sister',lat:25.047,lng:55.155},
+  {n:'Mohammed Al Gunaid',bu:'DJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'Egypt exit plan',lat:25.298,lng:55.366},
+  {n:'Hassan Aslam',bu:'DJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.112,lng:55.138},
+  {n:'Bida Blume',bu:'CMA',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.104,lng:55.185},
+  {n:'Veneracion Camille',bu:'DJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'B',deps:0,note:'UE203 → JFK · 14 Mar',lat:25.187,lng:55.276},
+  {n:'Rama Charaf',bu:'CMA',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'D',deps:0,note:'Post Eid',lat:25.115,lng:55.352},
+  {n:'Saurabh Dhawan',bu:'OPIS/CMA',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.047,lng:55.190},
+  {n:'Ronan Duff',bu:'DJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.191,lng:55.269},
+  {n:'Abdel Elsaeed',bu:'DJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'S',deps:0,note:'STEP enrolled',lat:25.205,lng:55.305},
+  {n:'Rinad Farooq',bu:'OPIS/CMA',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.039,lng:55.217},
+  {n:'Anand Joawn',bu:'WSJBarrons',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.077,lng:55.172},
+  {n:'Elvan Kigilcim',bu:'WSJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:1,note:'1 dep',lat:25.055,lng:55.305},
+  {n:'Alice Lovell',bu:'WSJBarrons',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.010,lng:55.298},
+  {n:'Jared Malsin',bu:'WSJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.185,lng:55.258},
+  {n:'Rebeka Mas',bu:'—',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'N/A phone',lat:25.096,lng:55.172},
+  {n:'Alaa Mohamed',bu:'DJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:4,note:'Ahmed + 3 daughters',lat:25.195,lng:55.402},
+  {n:'Katherine Montemayor',bu:'CMA',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.068,lng:55.137},
+  {n:'Tarun Nair',bu:'DJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.027,lng:55.262},
+  {n:'Summer Said',bu:'WSJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'D',deps:2,note:'To Cairo · 2 kids',lat:25.162,lng:55.231},
+  {n:'Sandra Toma',bu:'CMA',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:1,note:'',lat:25.093,lng:55.172},
+  {n:'Priyanka Wade',bu:'DJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'',lat:25.095,lng:55.162},
+  {n:'Alexandra Young',bu:'DJ',cur:'Dubai, ARE',wl:'Dubai, ARE',s:'N',deps:0,note:'Contractors',lat:25.082,lng:55.188},
+  // Jerusalem IN-REGION
+  {n:'Milan Czerny',bu:'WSJ',cur:'Jerusalem, ISR',wl:'Jerusalem, ISR',s:'N',deps:0,note:'',lat:31.777,lng:35.207},
+  {n:'Amit Elkayam',bu:'WSJ',cur:'Jerusalem, ISR',wl:'Tel Aviv, ISR',s:'S',deps:0,note:'STEP enrolled',lat:31.776,lng:35.208},
+  {n:'Harry Frankham',bu:'GRS&R',cur:'Jerusalem, ISR',wl:'Jerusalem, ISR',s:'B',deps:0,note:'RJ111 → LHR · 14 Mar',lat:31.775,lng:35.206},
+  {n:'Dov Lieber',bu:'WSJ',cur:'Jerusalem, ISR',wl:'Tel Aviv, ISR',s:'S',deps:1,note:'STEP enrolled · Wife',lat:31.778,lng:35.209},
+  {n:'Anat Peled',bu:'WSJ',cur:'Jerusalem, ISR',wl:'Tel Aviv, ISR',s:'S',deps:0,note:'STEP enrolled',lat:31.774,lng:35.205},
+  {n:'Zvi Smith',bu:'WSJ',cur:'Jerusalem, ISR',wl:'Jerusalem, ISR',s:'S',deps:0,note:'STEP enrolled',lat:31.776,lng:35.207},
+  // Tel Aviv IN-REGION
+  {n:'Feliz Solomon',bu:'WSJ',cur:'Tel Aviv, ISR',wl:'Tel Aviv, ISR',s:'S',deps:0,note:'STEP enrolled',lat:32.077,lng:34.776},
+  // Doha IN-REGION
+  {n:'Moe Kabeil',bu:'DJ',cur:'Doha, QAT',wl:'Doha, QAT',s:'S',deps:3,note:'STEP enrolled · 3 deps',lat:25.285,lng:51.531},
+  // Amman IN-REGION
+  {n:'Rawan Maayeh',bu:'DJ',cur:'Amman, JOR',wl:'Amman, JOR',s:'N',deps:0,note:'Exit: N Ireland',lat:31.954,lng:35.910},
+  // Muscat IN-REGION (booked out)
+  {n:'Paul Hutchinson',bu:'GRS&R',cur:'Muscat, OMN',wl:'Dubai, ARE',s:'B',deps:0,note:'PC871→PC1181 → MCR · 12 Mar',lat:23.591,lng:58.382},
+  // EXTRACTED
+  {n:'Omar Abdel-Baqui',bu:'WSJ',cur:'London, GBR',wl:'Dubai, ARE',s:'C',deps:0,note:'MCT → LHR via TK · 06 Mar',lat:51.505,lng:-0.09},
+  {n:'Abigail Carmel Michaelson',bu:'WSJBarrons',cur:'New York, USA',wl:'Jerusalem, ISR',s:'C',deps:0,note:'TLV → EWR via SOF/MUC · 10 Mar',lat:40.714,lng:-74.005},
+  {n:'Mariam Chakri',bu:'DJ',cur:'Paris, FRA',wl:'Dubai, ARE',s:'C',deps:0,note:'MCT → Paris · 05 Mar',lat:48.856,lng:2.352},
+  {n:'Andrew Dowell',bu:'WSJ',cur:'London, GBR',wl:'Dubai, ARE',s:'C',deps:1,note:'MCT → LHR via WY2101 · 10 Mar',lat:51.510,lng:-0.12},
+  {n:'Salma El Sadda',bu:'DJ',cur:'Cairo, EGY',wl:'Dubai, ARE',s:'C',deps:0,note:'DBX → Cairo EK927 · 08 Mar',lat:30.044,lng:31.235},
+  {n:'Anicet Fantar',bu:'DJ',cur:'Paris, FRA',wl:'Dubai, ARE',s:'C',deps:0,note:'MCT → Paris · 05 Mar',lat:48.850,lng:2.345},
+  {n:'Anthony Forgione',bu:'DJ',cur:'Barcelona, ESP',wl:'Dubai, ARE',s:'C',deps:0,note:'MCT → Barcelona · 05 Mar',lat:41.385,lng:2.173},
+  {n:'Katerina Kafali',bu:'DJ',cur:'Athens, GRC',wl:'Dubai, ARE',s:'C',deps:3,note:'RUH → Athens via TK · 04 Mar',lat:37.983,lng:23.727},
+  {n:'Hassan Boustani',bu:'CMA',cur:'Istanbul, TUR',wl:'Doha, QAT',s:'B',deps:0,note:'IST → Cairo MS738 · 13 Mar',lat:41.015,lng:28.979},
+  {n:'Nikhil Lohade',bu:'WSJ',cur:'Delhi, IND',wl:'Dubai, ARE',s:'C',deps:5,note:'MCT → India WY265 · 06 Mar',lat:28.613,lng:77.209},
+  {n:'Linh Nguyen',bu:'CMA',cur:'Hanoi, VNM',wl:'Dubai, ARE',s:'C',deps:2,note:'AUH → Hanoi EY430 · 10 Mar',lat:21.027,lng:105.834},
+  {n:'Praseeda Nair',bu:'WSJBarrons',cur:'London, GBR',wl:'Dubai, ARE',s:'C',deps:0,note:'MCT → LHR via TK · 06 Mar',lat:51.515,lng:-0.11},
+  {n:'Elliot Sanderson',bu:'GRS&R',cur:'London, GBR',wl:'Dubai, ARE',s:'C',deps:0,note:'AMM → LHR via TK · 09 Mar',lat:51.508,lng:-0.115},
+  {n:'Yaroslav Trofimov',bu:'WSJ',cur:'Paris, FRA',wl:'Dubai, ARE',s:'C',deps:1,note:'MCT → Venice → Paris · 06 Mar',lat:48.853,lng:2.360},
+  {n:'Claudio Brandao',bu:'CMA',cur:'Sao Paulo, BRA',wl:'Dubai, ARE',s:'C',deps:3,note:'MCT → Sao Paulo ET625/ET506 · 09 Mar',lat:-23.548,lng:-46.636},
+];
+
+// Add staff markers
+const sMarkers=[];
+const sColMap={N:'#1E6FD9',B:'#F5A623',S:'#0096B4',D:'#D4670E',C:'#555',M:'#8E44AD'};
+STAFF.forEach((s,i)=>{
+  const col=sColMap[s.s]||'#555';
+  const chip=s.s==='N'?'pk-b':s.s==='B'?'pk-a':s.s==='S'?'pk-t':s.s==='D'?'pk-o':s.s==='C'?'pk-g':'pk-p';
+  const lbl=s.s==='N'?'NOT INTENDING':s.s==='B'?'BOOKED':s.s==='S'?'STEP ENROLLED':s.s==='D'?'DEVELOPING':s.s==='C'?'EXTRACTED':'MID-EXTRACT';
+  const m=L.marker([s.lat,s.lng],{icon:mkStaff(col),zIndexOffset:1000}).addTo(map)
+    .bindPopup(mkPop('var(--blue)','📍 DJ STAFF · '+lbl,s.n,
+      [['Business Unit',s.bu],['Current Location',s.cur],['Work Location',s.wl],['Dependants',s.deps>0?s.deps+' dep(s)':'None'],['Notes',s.note||'—']],
+      pr(chip,lbl),''),{maxWidth:270});
+  sMarkers.push({m,s});
+});
+
+// ── DISPOSITION TABLE DATA ────────────────────────────────────
+const dispData=[
+  {loc:'Dubai, ARE',staff:17,dep:22,inReg:true},
+  {loc:'Jerusalem, ISR',staff:8,dep:1,inReg:true},
+  {loc:'London, GBR',staff:4,dep:2,inReg:false},
+  {loc:'Istanbul, TUR',staff:3,dep:1,inReg:false},
+  {loc:'Paris, FRA',staff:3,dep:0,inReg:false},
+  {loc:'New York, USA',staff:2,dep:0,inReg:false},
+  {loc:'Muscat, OMN',staff:2,dep:0,inReg:false},
+  {loc:'Doha, QAT',staff:1,dep:3,inReg:true},
+  {loc:'Delhi, IND',staff:1,dep:5,inReg:false},
+  {loc:'Sao Paulo, BRA',staff:1,dep:3,inReg:false},
+  {loc:'UNK, GRC',staff:1,dep:3,inReg:false},
+  {loc:'Tel Aviv, ISR',staff:1,dep:0,inReg:true},
+  {loc:'Amman, JOR',staff:1,dep:1,inReg:true},
+  {loc:'Hanoi, VNM',staff:1,dep:2,inReg:false},
+  {loc:'Cairo, EGY',staff:1,dep:2,inReg:false},
+  {loc:'Athens, GRC',staff:1,dep:1,inReg:false},
+  {loc:'Barcelona, ESP',staff:1,dep:0,inReg:false},
+];
+const dtb=document.getElementById('d-tbody');
+dispData.forEach(d=>{
+  const tr=document.createElement('tr');
+  tr.className=d.inReg?'inr':'outr';
+  const sp=Math.round((d.staff/49)*100);
+  const dp=d.dep>0?Math.round((d.dep/46)*100):0;
+  const avg=(d.staff>0?(d.dep/d.staff).toFixed(1):'0.0');
+  tr.innerHTML=`<td style="white-space:nowrap">${d.loc}${d.inReg?'<span class="reg-in">IN</span>':'<span class="reg-out">OUT</span>'}</td>
+    <td><span class="dnum ${d.inReg?'kr':'kg'}">${d.staff}</span></td>
+    <td class="avg-col">${sp}%</td>
+    <td><span class="dnum" style="color:var(--purple)">${d.dep}</span></td>
+    <td class="avg-col">${dp>0?dp+'%':'—'}</td>
+    <td><span class="dnum" style="color:var(--teal)">${d.staff+d.dep}</span></td>
+    <td class="avg-col">${avg}</td>`;
+  dtb.appendChild(tr);
+});
+
+// ── EXTRACTION FLIGHT DATA ────────────────────────────────────
+const EXT=[
+  {n:1,name:'Katerina Kafali',type:'Staff',from:'Riyadh (RUH)',to:'Athens, Greece',flights:'TK145 → TK1849 → A3146',date:'04 Mar',isos:'Yes',status:'Complete'},
+  {n:2,name:'Marko F. Kafali',type:'Dep',from:'Riyadh (RUH)',to:'Athens, Greece',flights:'TK145 → TK1849 → A3146',date:'04 Mar',isos:'—',status:'Complete'},
+  {n:3,name:'Chrysi Kafali',type:'Dep',from:'Riyadh (RUH)',to:'Athens, Greece',flights:'TK145 → TK1849 → A3146',date:'04 Mar',isos:'—',status:'Complete'},
+  {n:4,name:'Theo Kafali',type:'Dep',from:'Riyadh (RUH)',to:'Athens, Greece',flights:'TK145 → TK1849 → A3146',date:'04 Mar',isos:'—',status:'Complete'},
+  {n:5,name:'Mariam Chakri',type:'Staff',from:'Muscat (MCT)',to:'Paris, France',flights:'TK6935 → TK1827',date:'05 Mar',isos:'Yes',status:'Complete'},
+  {n:6,name:'Anicet Fantar',type:'Staff',from:'Muscat (MCT)',to:'Paris, France',flights:'TK6935 → TK1827',date:'05 Mar',isos:'Yes',status:'Complete'},
+  {n:7,name:'Anthony Forgione',type:'Staff',from:'Muscat (MCT)',to:'Barcelona, Spain',flights:'TK6935 → TK1855',date:'05 Mar',isos:'Yes',status:'Complete'},
+  {n:8,name:'Yaroslav Trofimov',type:'Staff',from:'Muscat (MCT)',to:'Venice, Italy',flights:'TK6905 → TK1867',date:'06 Mar',isos:'Yes',status:'Complete'},
+  {n:9,name:'Ageta Kurzela',type:'Dep',from:'Muscat (MCT)',to:'Venice, Italy',flights:'TK6905',date:'06 Mar',isos:'—',status:'Complete'},
+  {n:10,name:'Praseeda Nair',type:'Staff',from:'Muscat (MCT)',to:'London, UK',flights:'TK775 → TK1985',date:'06 Mar',isos:'Yes',status:'Complete'},
+  {n:11,name:'Manju Jain',type:'Dep',from:'Muscat (MCT)',to:'India',flights:'WY265',date:'06 Mar',isos:'—',status:'Complete'},
+  {n:12,name:'Vinaykumar Jain',type:'Dep',from:'Muscat (MCT)',to:'India',flights:'WY265',date:'06 Mar',isos:'—',status:'Complete'},
+  {n:13,name:'Shweta Jain',type:'Dep',from:'Muscat (MCT)',to:'India',flights:'WY265',date:'06 Mar',isos:'—',status:'Complete'},
+  {n:14,name:'Nikhil Lohade',type:'Staff',from:'Muscat (MCT)',to:'India',flights:'WY265',date:'06 Mar',isos:'Yes',status:'Complete'},
+  {n:15,name:'Anya Jain',type:'Dep',from:'Muscat (MCT)',to:'India',flights:'WY265',date:'06 Mar',isos:'—',status:'Complete'},
+  {n:16,name:'Inaya Jain',type:'Dep',from:'Muscat (MCT)',to:'India',flights:'WY265',date:'06 Mar',isos:'—',status:'Complete'},
+  {n:17,name:'Omar Abdel-Baqui',type:'Staff',from:'Muscat (MCT)',to:'London, UK',flights:'TK775 → TK1985',date:'06 Mar',isos:'Yes',status:'Complete'},
+  {n:18,name:'Summer Abdelmagid',type:'Dep',from:'Muscat (MCT)',to:'Cairo, Egypt',flights:'MS931',date:'08 Mar',isos:'—',status:'Complete'},
+  {n:19,name:'Yusuf Debaets',type:'Dep',from:'Muscat (MCT)',to:'Cairo, Egypt',flights:'MS931',date:'08 Mar',isos:'—',status:'Complete'},
+  {n:20,name:'Sarah Debaets',type:'Dep',from:'Muscat (MCT)',to:'Cairo, Egypt',flights:'MS931',date:'08 Mar',isos:'—',status:'Complete'},
+  {n:21,name:'Salma El Sadda',type:'Staff',from:'Dubai (DBX)',to:'Cairo, Egypt',flights:'EK927',date:'08 Mar',isos:'Yes',status:'Complete'},
+  {n:22,name:'Claudio Brandao',type:'Staff',from:'Muscat (MCT)',to:'Sao Paulo, Brazil',flights:'ET625 → ET506',date:'09 Mar',isos:'Yes',status:'Complete'},
+  {n:23,name:'Juliana G. Barbosa',type:'Dep',from:'Muscat (MCT)',to:'Sao Paulo, Brazil',flights:'ET625 → ET506',date:'09 Mar',isos:'—',status:'Complete'},
+  {n:24,name:'Mariana B. Brandao',type:'Dep',from:'Muscat (MCT)',to:'Sao Paulo, Brazil',flights:'ET625 → ET506',date:'09 Mar',isos:'—',status:'Complete'},
+  {n:25,name:'Luiza B. Brandao',type:'Dep',from:'Muscat (MCT)',to:'Sao Paulo, Brazil',flights:'ET625 → ET506',date:'09 Mar',isos:'—',status:'Complete'},
+  {n:26,name:'Elliot Sanderson',type:'Staff',from:'Amman (AMM)',to:'London (LHR)',flights:'TK1984 → TK4617',date:'09 Mar',isos:'Yes',status:'Complete'},
+  {n:27,name:'Linh Nguyen',type:'Staff',from:'Abu Dhabi (AUH)',to:'Hanoi, Vietnam',flights:'EY430',date:'10 Mar',isos:'Yes',status:'Complete'},
+  {n:28,name:'Tran Kai Tuan Khoi',type:'Dep',from:'Abu Dhabi (AUH)',to:'Hanoi, Vietnam',flights:'EY430',date:'10 Mar',isos:'—',status:'Complete'},
+  {n:29,name:'Tran Tuan Vinh',type:'Dep',from:'Abu Dhabi (AUH)',to:'Hanoi, Vietnam',flights:'EY430',date:'10 Mar',isos:'—',status:'Complete'},
+  {n:30,name:'Andrew Dowell',type:'Staff',from:'Muscat (MCT)',to:'London, UK',flights:'WY2101',date:'10 Mar',isos:'Yes',status:'Complete'},
+  {n:31,name:'Roxanne Dowell',type:'Dep',from:'Muscat (MCT)',to:'London, UK',flights:'WY2101',date:'10 Mar',isos:'—',status:'Complete'},
+  {n:32,name:'Abigail Carmel M.',type:'Staff',from:'Tel Aviv (TLV)',to:'New York (EWR)',flights:'6H719(SOF) → LH1703(MUC) → LH412',date:'10 Mar',isos:'Yes',status:'Complete'},
+  {n:33,name:'Paul Hutchinson',type:'Staff',from:'Muscat (MCT)',to:'Manchester (MCR)',flights:'PC871 → PC1181',date:'12 Mar',isos:'Yes',status:'Booked'},
+  {n:34,name:'Hassan Boustani',type:'Staff',from:'Istanbul (IST)',to:'Cairo, Egypt',flights:'MS738',date:'13 Mar',isos:'Yes',status:'Booked'},
+  {n:35,name:'Camille Veneracion',type:'Staff',from:'Dubai (DBX)',to:'New York (JFK)',flights:'UE203',date:'14 Mar',isos:'Yes',status:'Booked'},
+  {n:36,name:'Harry Frankham',type:'Staff',from:'Amman (AMM)',to:'London (LHR)',flights:'RJ111',date:'14 Mar',isos:'Yes',status:'Booked'},
+];
+let curF='all';
+function renderExt(f){
+  curF=f;
+  document.querySelectorAll('.filt').forEach(b=>b.classList.toggle('on',b.dataset.f===f));
+  const tb=document.getElementById('ext-tbody');tb.innerHTML='';
+  const rows=EXT.filter(e=>{
+    if(f==='all')return true;
+    if(f==='Staff'||f==='Dep')return e.type===f;
+    if(f==='No')return e.status==='No';
+    return e.status===f;
+  });
+  let lastDate='';
+  rows.forEach(e=>{
+    const sc=e.status==='Complete'?'cp-c':e.status==='Booked'?'cp-b':'cp-r';
+    const tc=e.type==='Staff'?'f-type-s':e.type==='Dep'?'f-type-d':'f-type-dep';
+    const newDate=e.date!==lastDate;
+    lastDate=e.date;
+    const tr=document.createElement('tr');
+    if(newDate)tr.className='f-row-grp';
+    tr.innerHTML=`<td style="padding-left:14px;font-family:'Share Tech Mono',monospace;font-size:8px;color:var(--muted)">${e.n}</td>
+      <td><div class="f-n">${e.name}</div><div class="${tc}">${e.type}</div></td>
+      <td><div class="f-from" style="font-size:9px;color:var(--text)">${e.from}</div><div style="font-family:'Share Tech Mono',monospace;font-size:7.5px;color:var(--muted);margin-top:1px">→ ${e.to}</div></td>
+      <td><div class="f-num">${e.flights}</div></td>
+      <td class="f-date">${e.date}</td>
+      <td style="text-align:center">${e.isos==='Yes'?'<span class="isos-y">YES</span>':'<span class="isos-n">—</span>'}</td>
+      <td><span class="chip ${sc}">${e.status}</span></td>`;
+    tb.appendChild(tr);
+  });
+}
+renderExt('all');
+document.querySelectorAll('.filt').forEach(b=>b.addEventListener('click',()=>renderExt(b.dataset.f)));
+
+// ── STAFF LIST ────────────────────────────────────────────────
+const buC={'DJ':'#1E6FD9','CMA':'#8E44AD','WSJBarrons':'#22A55A','OPIS/CMA':'#D4670E','WSJ':'#27AE60','GRS&R':'#C0392B','DJ (News UK)':'#1E6FD9','—':'#444'};
+const sColCls={N:'cp-n',B:'cp-b',S:'cp-s',D:'cp-d',C:'cp-c',M:'cp-m'};
+const sLbl={N:'NOT INTENDING',B:'BOOKED',S:'STEP',D:'DEVELOPING',C:'EXTRACTED',M:'MID-EXTRACT'};
+const regionGroups={};
+const regionInFlag={
+  'Dubai, ARE':true,'Jerusalem, ISR':true,'Tel Aviv, ISR':true,
+  'Doha, QAT':true,'Amman, JOR':true,'Muscat, OMN':true
+};
+const regionOrder=[
+  'Dubai, ARE','Jerusalem, ISR','Tel Aviv, ISR','Doha, QAT','Amman, JOR','Muscat, OMN',
+  'London, GBR','Paris, FRA','Istanbul, TUR','Athens, GRC','New York, USA','Delhi, IND',
+  'Cairo, EGY','Barcelona, ESP','Hanoi, VNM','Sao Paulo, BRA'
+];
+STAFF.forEach(s=>{
+  const g=s.cur;
+  if(!regionGroups[g])regionGroups[g]=[];
+  regionGroups[g].push(s);
+});
+const sc=document.getElementById('staff-container');
+regionOrder.forEach(reg=>{
+  if(!regionGroups[reg])return;
+  const isIn=regionInFlag[reg]||false;
+  const grp=document.createElement('div');
+  // Header
+  const hdr=document.createElement('div');
+  hdr.className='grp-hdr';
+  const cnt=regionGroups[reg].length;
+  const depTot=regionGroups[reg].reduce((a,s)=>a+s.deps,0);
+  hdr.innerHTML=`<span class="grp-loc">${reg}</span>
+    <span class="grp-meta">
+      ${isIn?'<span class="chip cp-r" style="font-size:6.5px">IN REGION</span>':'<span class="chip cp-c" style="font-size:6.5px">EXTRACTED</span>'}
+      <span style="font-family:\'Share Tech Mono\',monospace;font-size:7.5px;color:var(--muted)">${cnt} staff${depTot>0?' +'+depTot+' dep':''}</span>
+    </span>`;
+  grp.appendChild(hdr);
+  regionGroups[reg].forEach(s=>{
+    const bc=buC[s.bu]||'#555';
+    const row=document.createElement('div');
+    row.className='sli';
+    const idx=sMarkers.findIndex(m=>m.s.n===s.n&&m.s.cur===s.cur);
+    if(idx>=0){
+      row.style.cursor='pointer';
+      row.onclick=()=>{
+        const sm=sMarkers[idx];
+        map.flyTo([sm.s.lat,sm.s.lng],13,{duration:1.2});
+        setTimeout(()=>sm.m.openPopup(),1300);
+      };
+    }
+    row.innerHTML=`
+      <div class="sdot" style="background:${sColMap[s.s]||'#555'}"></div>
+      <div class="sl-info">
+        <div class="sl-n">${s.n}</div>
+        <div class="sl-m">${s.wl!==s.cur?'Work: '+s.wl+' · ':''}Cur: ${s.cur}</div>
+        ${s.note?`<div class="sl-note">${s.note}</div>`:''}
+      </div>
+      <div class="sl-right">
+        <div class="bu-chip" style="background:${bc}20;color:${bc};border:1px solid ${bc}40">${s.bu}</div>
+        ${s.deps>0?`<span class="dep-num">+${s.deps} dep</span>`:''}
+        <span class="chip ${sColCls[s.s]}" style="font-size:6.5px;padding:1px 4px">${sLbl[s.s]}</span>
+      </div>`;
+    grp.appendChild(row);
+  });
+  sc.appendChild(grp);
+});
+
+// ── TRAVEL DATA ───────────────────────────────────────────────
+const TVL_CURR=[
+  {n:'Harry Frankham',dates:'01 Mar – 14 Mar',loc:'Jerusalem, ISR',type:'Assignment',status:'Booked',note:'Leaving 14 Mar · RJ111 → LHR',updated:'9 Mar 2026'},
+  {n:'Veneracion Camille',dates:'14 Mar 2026',loc:'Dubai, ARE',type:'Personal',status:'Booked',note:'UE203 → JFK on 14 Mar',updated:'9 Mar 2026'},
+];
+const TVL_FUT=[
+  {n:'Ka Hoong Ng',dates:'12–13 Mar',loc:'Abu Dhabi, UAE',type:'Layover',status:'—',note:'Unconfirmed',updated:''},
+  {n:'Jonathan Cooper',dates:'18 Mar',loc:'Doha, QAT',type:'Layover',status:'Reevaluating',note:'Agreed to rebook flight on 09 Mar · Followed up 10 Mar',updated:'9 Mar 2026'},
+  {n:'Kim Hope',dates:'25 Mar',loc:'Abu Dhabi, UAE',type:'Layover',status:'Confirmed',note:'Cannot cancel · Will not change flight',updated:'6 Mar 2026'},
+  {n:'Benoit Faucon',dates:'05 Apr',loc:'Dubai, ARE',type:'Unknown',status:'Unconfirmed',note:'Flight was booked 16 Apr',updated:''},
+  {n:'Annarita Strisciuglio',dates:'15 Apr / 03 May',loc:'Abu Dhabi, UAE',type:'Layover',status:'Reevaluating',note:'Layover en route to LHR',updated:'9 Mar 2026'},
+  {n:'Krishnendu Mondal',dates:'20–24 Apr',loc:'Dubai, ARE',type:'Trip',status:'Reevaluating',note:'',updated:'9 Mar 2026'},
+  {n:'Liz Holtzman',dates:'26 Apr – 07 May',loc:'Tel Aviv, ISR',type:'Trip ??',status:'Unconfirmed',note:'Found on Travel Tracker',updated:'10 Mar 2026'},
+];
+const TVL_CAN=[
+  {n:'Kim Patrick',dates:'13 Mar 2026',loc:'Abu Dhabi, UAE',type:'Layover',status:'Rebooked',note:'Will now fly through Dallas',updated:'10 Mar 2026'},
+  {n:'Jonathan Cooper',dates:'18 Mar',loc:'Doha, QAT',type:'Layover',status:'Rebooked',note:'Rebooked through JFK on 10 Mar',updated:'10 Mar 2026'},
+  {n:'Lee Shiong Lew',dates:'22 Mar / 29 Mar',loc:'Doha, QAT',type:'Layover',status:'Rebooked',note:'Houston rebooked via Hong Kong and Los Angeles',updated:'10 Mar 2026'},
+  {n:'David Winning',dates:'13 Mar',loc:'Dubai, ARE',type:'Layover',status:'Cancelled',note:'Cancelled trip · Staying in Sydney throughout March',updated:'10 Mar 2026'},
+];
+function statusChip(s){
+  if(s==='Booked')return'cp-b';
+  if(s==='Confirmed')return'cp-conf';
+  if(s==='Rebooked')return'cp-s';
+  if(s==='Cancelled')return'cp-c';
+  if(s==='Reevaluating')return'cp-re';
+  if(s==='Unconfirmed')return'cp-unk';
+  return'cp-unk';
+}
+function renderTvl(items,el){
+  document.getElementById(el).innerHTML=items.map(t=>`
+    <div class="tvl-row">
+      <div>
+        <div class="tvl-n">${t.n}</div>
+        <div class="tvl-d">📅 ${t.dates}</div>
+        <div class="tvl-loc">📍 ${t.loc} <span style="color:var(--muted);font-size:7.5px">· ${t.type}</span></div>
+        ${t.note?`<div class="tvl-note">"${t.note}"</div>`:''}
+        ${t.updated?`<div class="tvl-upd">Updated: ${t.updated}</div>`:''}
+      </div>
+      <div class="tvl-right">
+        <span class="chip ${statusChip(t.status)}">${t.status}</span>
+      </div>
+    </div>`).join('');
+}
+renderTvl(TVL_CURR,'tvl-current');
+renderTvl(TVL_FUT,'tvl-future');
+renderTvl(TVL_CAN,'tvl-cancelled');
+
+// ── TABS ──────────────────────────────────────────────────────
+function switchTab(id){
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));
+  const t=document.querySelector(`.tab[data-t="${id}"]`);
+  const v=document.getElementById('v-'+id);
+  if(t)t.classList.add('on');
+  if(v){v.classList.add('on');document.getElementById('pane').scrollTop=0;}
+}
+document.querySelectorAll('.tab').forEach(t=>t.addEventListener('click',()=>switchTab(t.dataset.t)));
+
+// ── FIT BOUNDS ────────────────────────────────────────────────
+const allBounds=[
+  [25.253,55.366],[25.217,55.331],[25.207,55.348],
+  [25.109,55.138],[25.141,55.185],[25.006,55.088],
+  [25.229,55.284],[25.026,55.367],[25.225,55.332],
+  [31.776,35.207],[32.077,34.776],[31.954,35.910],
+  [25.285,51.531],[23.591,58.382],
+];
+map.fitBounds(L.latLngBounds(allBounds),{padding:[45,25]});
+</script>
+</body>
+</html>
